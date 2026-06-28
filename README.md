@@ -16,8 +16,7 @@ switches.
 [![shadcn/ui](https://img.shields.io/badge/shadcn%2Fui-radix--nova-000000)](https://ui.shadcn.com)
 [![Firebase Hosting](https://img.shields.io/badge/Firebase-Hosting-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/docs/hosting)
 
-> **Live demo:** https://ai-spend-inventory.web.app _(after the first deploy — see
-> [Deploy](#deploy-to-firebase-hosting))_
+> **Live demo:** **<https://ai-spend-inventory.web.app>** — deployed on Firebase Hosting.
 
 ---
 
