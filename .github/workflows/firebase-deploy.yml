@@ -17,6 +17,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # GitHub-hosted runners can hit IPv6 "premature close" resets against Google
+  # APIs, which makes firebase-tools retry the (non-idempotent) release call and
+  # fail with FAILED_PRECONDITION. Preferring IPv4 keeps deploys reliable.
+  NODE_OPTIONS: --dns-result-order=ipv4first
+
 jobs:
   checks:
     name: Checks · lint, type-check, build
