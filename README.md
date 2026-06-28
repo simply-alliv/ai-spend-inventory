@@ -249,4 +249,4 @@ signals (success rate, p95 latency, derived health). See the FinOps Foundation,
 
 ## License
 
-Provided as an interview/demonstration artifact. The illustrative data is fictional.
+Provided as a demonstration artifact. The illustrative data is fictional.
