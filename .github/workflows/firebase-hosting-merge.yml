@@ -12,9 +12,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: npm ci && npm run lint && npm run build
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      # GitHub-hosted runners intermittently hit IPv6 "premature close" resets
+      # against Google APIs, after which firebase-tools retries the
+      # (non-idempotent) release call that already succeeded and exits non-zero
+      # with FAILED_PRECONDITION — even though the new version went live. Tolerate
+      # that step and assert the real outcome with a post-deploy verification.
+      - name: Deploy to Firebase Hosting (live)
+        id: deploy
+        continue-on-error: true
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AI_SPEND_INVENTORY }}
           channelId: live
           projectId: ai-spend-inventory
+      - name: Verify live deployment
+        run: |
+          built=$(basename "$(ls dist/assets/index-*.js | head -1)")
+          echo "Built bundle: $built"
+          for i in $(seq 1 6); do
+            live=$(curl -fsSL --retry 3 https://ai-spend-inventory.web.app \
+              | grep -oE 'assets/index-[^"]+\.js' | head -1 | xargs -r basename || true)
+            echo "Attempt $i — live bundle: ${live:-<none>}"
+            if [ "$live" = "$built" ]; then
+              echo "Live site is serving the freshly built bundle — deploy verified."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Live site is not serving the built bundle ($built) after deploy."
+          exit 1
