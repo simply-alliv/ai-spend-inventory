@@ -210,18 +210,18 @@ The deployed site is served at `https://<project-id>.web.app`.
 
 ## Continuous deployment (CI/CD)
 
-Every push and pull request runs
-[`.github/workflows/firebase-deploy.yml`](.github/workflows/firebase-deploy.yml):
+Set up the idiomatic way with `firebase init hosting:github`, which provisions a deploy
+service account and stores its key as the encrypted
+`FIREBASE_SERVICE_ACCOUNT_AI_SPEND_INVENTORY` GitHub Actions secret. Two workflows run:
 
-1. **Checks** — `npm ci`, `npm run lint` (oxlint), and `npm run build` (type-check +
-   Vite build) on Node 24, on every push and pull request.
-2. **Deploy** — on a push to `main`, the verified build is deployed to the Firebase
-   Hosting **live** channel.
+- **[`firebase-hosting-merge.yml`](.github/workflows/firebase-hosting-merge.yml)** — on
+  every push to `main`: `npm ci && npm run lint && npm run build`, then deploy to the
+  Firebase Hosting **live** channel.
+- **[`firebase-hosting-pull-request.yml`](.github/workflows/firebase-hosting-pull-request.yml)**
+  — on pull requests: the same checks, then deploy to an ephemeral **preview** channel
+  with the URL posted on the PR.
 
-Deploys authenticate with a least-privilege Google service account stored as the
-encrypted `FIREBASE_SERVICE_ACCOUNT` GitHub Actions secret (roles: Firebase Hosting
-Admin + Firebase Viewer). The manual `firebase deploy` flow above still works for local
-one-off releases.
+The manual `firebase deploy` flow above still works for local one-off releases.
 
 ## Project structure
 
