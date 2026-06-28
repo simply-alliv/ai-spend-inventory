@@ -1,19 +1,22 @@
 import {
-  Layers,
+  Activity,
+  Banknote,
+  CalendarClock,
+  ServerCrash,
   ShieldAlert,
-  ShieldCheck,
-  TrendingUp,
+  UserCheck,
   Wallet,
   Wrench,
 } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { DATA_META } from "@/data/inventory";
+import { DATA_META, INVENTORY, type InventoryRow } from "@/data/inventory";
 import {
   computeMetrics,
   formatCurrency,
   formatPercent,
+  formatRate,
   formatSignedCurrency,
 } from "@/lib/metrics";
 
@@ -25,16 +28,19 @@ interface Kpi {
   accent: string;
 }
 
-function buildKpis(): Kpi[] {
-  const m = computeMetrics();
-  const pauses = m.byDecision.pause ?? 0;
+const ROSE = "text-rose-600 dark:text-rose-400";
+
+function buildKpis(rows: InventoryRow[]): Kpi[] {
+  const m = computeMetrics(rows);
+  const unmappedShare = m.currentTotal > 0 ? m.unmappedSpend / m.currentTotal : 0;
+  const wastedShare = m.currentTotal > 0 ? m.wastedSpend / m.currentTotal : 0;
 
   return [
     {
       label: "Total monthly spend",
       value: formatCurrency(m.currentTotal),
       hint: (
-        <span className="text-rose-600 dark:text-rose-400">
+        <span className={ROSE}>
           {formatSignedCurrency(m.surgeAbs)} ({formatPercent(m.surgePct)}) vs{" "}
           {DATA_META.priorPeriod}
         </span>
@@ -43,61 +49,92 @@ function buildKpis(): Kpi[] {
       accent: "text-foreground",
     },
     {
-      label: "Spend surge",
-      value: formatSignedCurrency(m.surgeAbs),
-      hint:
-        m.top3MoverShare !== null ? (
-          <>Top 3 movers = {formatPercent(m.top3MoverShare).replace("+", "")} of it</>
-        ) : (
-          <>vs prior period</>
-        ),
-      icon: TrendingUp,
-      accent: "text-rose-600 dark:text-rose-400",
-    },
-    {
-      label: "Line items tracked",
-      value: String(m.count),
+      label: "Annualized run-rate",
+      value: formatCurrency(m.annualizedRunRate),
       hint: (
         <>
-          {m.unmappedCount} unmapped · {m.lowConfidenceCount} low-confidence
+          surge adds{" "}
+          <span className={ROSE}>{formatSignedCurrency(m.surgeAnnualized)}/yr</span>
         </>
       ),
-      icon: Layers,
+      icon: CalendarClock,
       accent: "text-foreground",
     },
     {
-      label: "High-risk items",
-      value: String(m.highRiskCount),
-      hint: <>triage these first</>,
-      icon: ShieldAlert,
-      accent: "text-rose-600 dark:text-rose-400",
+      label: "Spend attributed",
+      value: formatPercent(m.attributedPct).replace("+", ""),
+      hint: (
+        <span className={ROSE}>
+          {formatCurrency(m.unmappedSpend)} ({Math.round(unmappedShare * 100)}%)
+          unmapped
+        </span>
+      ),
+      icon: UserCheck,
+      accent: "text-foreground",
     },
     {
       label: "Needs action",
       value: String(m.needsActionCount),
-      hint: <>fix + investigate</>,
+      hint: <>fix + investigate · {formatCurrency(m.addressableSpend)}/mo</>,
       icon: Wrench,
       accent: "text-amber-600 dark:text-amber-400",
     },
     {
-      label: "Pauses so far",
-      value: String(pauses),
-      hint: <>reversible-first by design</>,
-      icon: pauses === 0 ? ShieldCheck : ShieldAlert,
-      accent: "text-emerald-600 dark:text-emerald-400",
+      label: "Blended success rate",
+      value: formatRate(m.blendedSuccess),
+      hint: (
+        <span className={ROSE}>
+          {formatCurrency(m.wastedSpend)} ({Math.round(wastedShare * 100)}%) on
+          failed work
+        </span>
+      ),
+      icon: Activity,
+      accent: "text-foreground",
+    },
+    {
+      label: "Failing automations",
+      value: String(m.failingCount),
+      hint: (
+        <span className={ROSE}>
+          {formatCurrency(m.failingSpend)}/mo runs through them
+        </span>
+      ),
+      icon: ServerCrash,
+      accent: ROSE,
+    },
+    {
+      label: "Spend at risk",
+      value: formatCurrency(m.atRiskSpend),
+      hint: (
+        <>
+          {m.failingCount} failing · {m.degradedCount} degraded
+        </>
+      ),
+      icon: ShieldAlert,
+      accent: "text-amber-600 dark:text-amber-400",
+    },
+    {
+      label: "Revenue at risk",
+      value: formatCurrency(m.revenueAtRiskSpend),
+      hint: <>revenue-critical, not yet healthy</>,
+      icon: Banknote,
+      accent: ROSE,
     },
   ];
 }
 
-export function KpiCards() {
-  const kpis = buildKpis();
+export function KpiCards({ rows = INVENTORY }: { rows?: InventoryRow[] }) {
+  const kpis = buildKpis(rows);
 
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
       {kpis.map((kpi) => {
         const Icon = kpi.icon;
         return (
-          <Card key={kpi.label} className="gap-0 py-4">
+          <Card
+            key={kpi.label}
+            className="gap-0 py-4 transition-shadow hover:shadow-sm"
+          >
             <CardContent className="px-4">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-muted-foreground">

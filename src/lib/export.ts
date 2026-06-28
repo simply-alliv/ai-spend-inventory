@@ -2,7 +2,14 @@
 // back out (for Finance, a sheet, or the weekly review) is a first-class action.
 
 import { DATA_META, INVENTORY, type InventoryRow } from "@/data/inventory";
-import { deltaOf } from "@/lib/metrics";
+import {
+  costPer1kCalls,
+  costPerCall,
+  costPerMTok,
+  deltaOf,
+  errorRate,
+  opsHealth,
+} from "@/lib/metrics";
 
 const CSV_COLUMNS: { key: string; header: string; value: (row: InventoryRow) => string | number }[] = [
   { key: "id", header: "id", value: (r) => r.id },
@@ -28,6 +35,39 @@ const CSV_COLUMNS: { key: string; header: string; value: (row: InventoryRow) => 
   { key: "decision", header: "decision", value: (r) => r.decision },
   { key: "lever", header: "lever", value: (r) => r.lever },
   { key: "status", header: "status", value: (r) => r.status },
+  { key: "calls", header: "calls", value: (r) => r.calls },
+  {
+    key: "tokens_m",
+    header: "tokens_m",
+    value: (r) => (r.tokensM === null ? "" : r.tokensM),
+  },
+  { key: "success_rate", header: "success_rate", value: (r) => r.successRate },
+  {
+    key: "error_rate",
+    header: "error_rate",
+    value: (r) => Number(errorRate(r).toFixed(4)),
+  },
+  { key: "latency_ms_p95", header: "latency_ms_p95", value: (r) => r.latencyMsP95 },
+  { key: "health", header: "health", value: (r) => opsHealth(r) },
+  {
+    key: "cost_per_call",
+    header: "cost_per_call_usd",
+    value: (r) => {
+      const c = costPerCall(r);
+      return c === null ? "" : Number(c.toFixed(4));
+    },
+  },
+  {
+    key: "cost_per_1k_calls",
+    header: "cost_per_1k_calls_usd",
+    value: (r) => {
+      const c = costPer1kCalls(r);
+      return c === null ? "" : Number(c.toFixed(2));
+    },
+  },
+  { key: "env", header: "env", value: (r) => r.env },
+  { key: "criticality", header: "criticality", value: (r) => r.criticality },
+  { key: "cadence", header: "cadence", value: (r) => r.cadence },
 ];
 
 function escapeCsv(value: string | number): string {
@@ -53,6 +93,11 @@ export function toJSON(rows: InventoryRow[] = INVENTORY): string {
       rows: rows.map((row) => ({
         ...row,
         delta: deltaOf(row),
+        health: opsHealth(row),
+        errorRate: errorRate(row),
+        costPerCall: costPerCall(row),
+        costPer1kCalls: costPer1kCalls(row),
+        costPerMTok: costPerMTok(row),
       })),
     },
     null,

@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import type {
   Confidence,
   Decision,
+  Health,
   InventoryRow,
   Risk,
   Status,
@@ -19,6 +20,7 @@ import {
   DECISION_LABEL,
   formatPercent,
   formatSignedCurrency,
+  HEALTH_LABEL,
   RISK_LABEL,
   STATUS_LABEL,
 } from "@/lib/metrics";
@@ -101,6 +103,16 @@ export function StatusBadge({ status }: { status: Status }) {
       {STATUS_LABEL[status]}
     </TonedBadge>
   );
+}
+
+const HEALTH_TONE: Record<Health, Tone> = {
+  healthy: "emerald",
+  degraded: "amber",
+  failing: "rose",
+};
+
+export function HealthBadge({ health }: { health: Health }) {
+  return <TonedBadge tone={HEALTH_TONE[health]}>{HEALTH_LABEL[health]}</TonedBadge>;
 }
 
 const CONFIDENCE_TONE: Record<Confidence, Tone> = {
