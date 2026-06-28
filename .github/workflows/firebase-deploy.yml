@@ -6,11 +6,9 @@ on:
   pull_request:
     branches: [main]
 
-# Read-only by default; the deploy jobs use the encrypted service-account secret.
+# Read-only by default; the deploy job reads the encrypted service-account secret.
 permissions:
   contents: read
-  checks: write
-  pull-requests: write
 
 # Never run overlapping deploys for the same ref.
 concurrency:
@@ -19,8 +17,7 @@ concurrency:
 
 env:
   # GitHub-hosted runners can hit IPv6 "premature close" resets against Google
-  # APIs, which makes firebase-tools retry the (non-idempotent) release call and
-  # fail with FAILED_PRECONDITION. Preferring IPv4 keeps deploys reliable.
+  # APIs; prefer IPv4 to reduce flaky firebase-tools retries.
   NODE_OPTIONS: --dns-result-order=ipv4first
 
 jobs:
@@ -68,33 +65,43 @@ jobs:
           name: dist
           path: dist
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools@13
+
       - name: Deploy to live channel
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: ai-spend-inventory
-          channelId: live
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          # Authenticate with the service account via Application Default Credentials.
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
 
-  preview:
-    name: Deploy · PR preview channel
-    needs: checks
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+          set +e
+          OUTPUT=$(firebase deploy --only hosting --project ai-spend-inventory --non-interactive 2>&1)
+          CODE=$?
+          set -e
 
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist
+          echo "$OUTPUT"
+          rm -f "$RUNNER_TEMP/sa.json"
 
-      - name: Deploy preview channel
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: ai-spend-inventory
-          expires: 7d
+          if [ "$CODE" -eq 0 ]; then
+            echo "Deploy succeeded."
+            exit 0
+          fi
+
+          # A flaky "premature close" on the runner can make firebase-tools retry
+          # the (non-idempotent) release call after it already succeeded, returning
+          # FAILED_PRECONDITION "is the current active version". That means the new
+          # version DID go live, so treat it as success — but fail on anything else.
+          if printf '%s' "$OUTPUT" | grep -q "is the current active version"; then
+            echo "::notice::Release is already the active version (retry race) — deploy succeeded."
+            exit 0
+          fi
+
+          echo "::error::Firebase deploy failed."
+          exit "$CODE"

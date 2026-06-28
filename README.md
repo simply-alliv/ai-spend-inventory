@@ -214,11 +214,9 @@ Every push and pull request runs
 [`.github/workflows/firebase-deploy.yml`](.github/workflows/firebase-deploy.yml):
 
 1. **Checks** — `npm ci`, `npm run lint` (oxlint), and `npm run build` (type-check +
-   Vite build) on Node 24.
+   Vite build) on Node 24, on every push and pull request.
 2. **Deploy** — on a push to `main`, the verified build is deployed to the Firebase
    Hosting **live** channel.
-3. **PR previews** — pull requests get an ephemeral preview channel (URL posted on the
-   PR, expires in 7 days).
 
 Deploys authenticate with a least-privilege Google service account stored as the
 encrypted `FIREBASE_SERVICE_ACCOUNT` GitHub Actions secret (roles: Firebase Hosting
